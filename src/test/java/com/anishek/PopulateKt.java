@@ -1,9 +1,7 @@
 package com.anishek;
 
 import com.google.common.base.Stopwatch;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.*;
 import net.spy.memcached.MemcachedClient;
 import org.junit.Test;
 
@@ -28,7 +26,7 @@ public class PopulateKt {
         InetSocketAddress inetSocketAddress = new InetSocketAddress(hostAndPort[0], Integer.parseInt(hostAndPort[1]));
         MemcachedClient memcachedClient = new MemcachedClient(inetSocketAddress);
         int threads = Integer.parseInt(System.getProperty("threads"));
-        ListeningExecutorService executors = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(threads + 1));
+        ListeningExecutorService executors = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(threads + 1, new ThreadFactoryBuilder().setNameFormat("%d").build()));
         long keys = Long.parseLong(System.getProperty("keys"));
 
         Stopwatch started = Stopwatch.createStarted();
@@ -36,7 +34,13 @@ public class PopulateKt {
         for (int i = 0; i < threads; i++) {
             futures.add(executors.submit(new Insert(memcachedClient, keys)));
         }
+        List<Insert.Result> results = Futures.successfulAsList(futures).get();
         memcachedClient.shutdown();
+        for (Insert.Result result : results) {
+            if (result.failed > 0) {
+                System.out.println("failed " + result.failed + "for thread " + result.threadName);
+            }
+        }
         long elapsed = started.elapsed(TimeUnit.MILLISECONDS);
         System.out.println("Thoughtput : " + (threads * keys * 1000 * 1000) / elapsed);
         System.out.println("Time Taken(millis) : " + elapsed);
