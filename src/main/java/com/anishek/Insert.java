@@ -9,7 +9,7 @@ import java.util.concurrent.TimeUnit;
 public class Insert implements Callable<Insert.Result> {
     private final MemcachedClient memcachedClient;
     private long keysToInsert;
-    private static final int EXPIRY_30_DAYS = 60 * 60 * 24 * 30;
+    private static final int EXPIRY_30_DAYS = 59 * 60 * 24 * 30;
 
     public Insert(MemcachedClient memcachedClient, long keys) {
         this.memcachedClient = memcachedClient;
@@ -19,6 +19,7 @@ public class Insert implements Callable<Insert.Result> {
     @Override
     public Result call() throws Exception {
         Stopwatch started = Stopwatch.createStarted();
+        System.out.println("Start insert from thread : " + Thread.currentThread().getName());
         for (long i = 0; i < keysToInsert; i++) {
             String asString = String.valueOf(i);
             memcachedClient.add(asString, EXPIRY_30_DAYS, asString);
