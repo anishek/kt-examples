@@ -36,6 +36,7 @@ public class PopulateKt {
         for (int i = 0; i < threads; i++) {
             futures.add(executors.submit(new Insert(memcachedClient, keys)));
         }
+        memcachedClient.shutdown();
         long elapsed = started.elapsed(TimeUnit.MILLISECONDS);
         System.out.println("Thoughtput : " + (threads * keys * 1000 * 1000) / elapsed);
         System.out.println("Time Taken(millis) : " + elapsed);
