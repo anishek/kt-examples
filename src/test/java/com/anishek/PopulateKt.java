@@ -25,8 +25,7 @@ public class PopulateKt {
 
     @Test
     public void insertWait() throws IOException, ExecutionException, InterruptedException {
-        String[] hostAndPort = System.getProperty("kt.server").split(":");
-        final InetSocketAddress inetSocketAddress = new InetSocketAddress(hostAndPort[0], Integer.parseInt(hostAndPort[1]));
+        final InetSocketAddress inetSocketAddress = socketAddresses();
         ObjectCreator objectCreator = new ObjectCreator() {
             @Override
             public Insert instance(long keys) throws IOException {
@@ -38,10 +37,7 @@ public class PopulateKt {
 
     @Test
     public void insertWaitSingleClient() throws IOException, ExecutionException, InterruptedException {
-        String[] hostAndPort = System.getProperty("kt.server").split(":");
-        InetSocketAddress inetSocketAddress = new InetSocketAddress(hostAndPort[0], Integer.parseInt(hostAndPort[1]));
-        final MemcachedClient client = new MemcachedClient(inetSocketAddress);
-
+        final MemcachedClient client = new MemcachedClient(socketAddresses());
         ObjectCreator objectCreator = new ObjectCreator() {
             @Override
             public Insert instance(long keys) throws IOException {
@@ -55,8 +51,7 @@ public class PopulateKt {
 
     @Test
     public void insertNoWait() throws InterruptedException, ExecutionException, IOException {
-        String[] hostAndPort = System.getProperty("kt.server").split(":");
-        final InetSocketAddress inetSocketAddress = new InetSocketAddress(hostAndPort[0], Integer.parseInt(hostAndPort[1]));
+        final InetSocketAddress inetSocketAddress = socketAddresses();
         ObjectCreator objectCreator = new ObjectCreator() {
             @Override
             public Insert instance(long keys) throws IOException {
@@ -65,6 +60,20 @@ public class PopulateKt {
             }
         };
         run(objectCreator);
+    }
+
+    @Test
+    public void insertNoWaitSingleClient() throws IOException, ExecutionException, InterruptedException {
+        final MemcachedClient client = new MemcachedClient(socketAddresses());
+        ObjectCreator objectCreator = new ObjectCreator() {
+            @Override
+            public Insert instance(long keys) throws IOException {
+                return new InsertWithNoTimeout(client, keys);
+            }
+
+        };
+        run(objectCreator);
+        client.shutdown();
     }
 
     private void run(ObjectCreator objectCreator) throws IOException, InterruptedException, ExecutionException {
@@ -82,8 +91,14 @@ public class PopulateKt {
             System.out.println(result);
         }
         long elapsedInMillis = started.elapsed(TimeUnit.MILLISECONDS);
-        System.out.println("Thoughtput : " + (threads * keys * 1000) / elapsedInMillis);
+        System.out.println("Throughput : " + (threads * keys * 1000) / elapsedInMillis);
         System.out.println("Time Taken(millis) : " + elapsedInMillis);
+    }
+
+
+    private InetSocketAddress socketAddresses() {
+        String[] hostAndPort = System.getProperty("kt.server").split(":");
+        return new InetSocketAddress(hostAndPort[0], Integer.parseInt(hostAndPort[1]));
     }
 
     @Test
