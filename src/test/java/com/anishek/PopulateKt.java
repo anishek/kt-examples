@@ -37,8 +37,8 @@ public class PopulateKt {
         for (Insert.Result result : results) {
             System.out.println(result);
         }
-        long elapsed = started.elapsed(TimeUnit.MILLISECONDS);
-        System.out.println("Thoughtput : " + (threads * keys * 1000 * 1000) / elapsed);
-        System.out.println("Time Taken(millis) : " + elapsed);
+        long elapsedInMillis = started.elapsed(TimeUnit.MILLISECONDS);
+        System.out.println("Thoughtput : " + (threads * keys * 1000 * 1000) / elapsedInMillis);
+        System.out.println("Time Taken(millis) : " + elapsedInMillis);
     }
 }

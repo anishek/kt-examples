@@ -26,7 +26,8 @@ public class Insert implements Callable<Insert.Result> {
         Stopwatch started = Stopwatch.createStarted();
         System.out.println("Start insert from thread : " + Thread.currentThread().getName());
         long passed = 0, failed = 0, otherException = 0, timeout = 0;
-        for (long i = 0; i < keysToInsert; i++) {
+        long start = Long.parseLong(Thread.currentThread().getName());
+        for (long i = start; i < (start + 1) * keysToInsert; i++) {
             String asString = String.valueOf(i);
             OperationFuture<Boolean> add = memcachedClient.add(asString, EXPIRY_30_DAYS, asString);
 
