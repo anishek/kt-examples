@@ -7,17 +7,15 @@ import net.spy.memcached.internal.OperationFuture;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.List;
-import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
-public class Insert implements Callable<Insert.Result> {
+public class InsertWithNoTimeout implements Insert {
     private final MemcachedClient memcachedClient;
     private long keysToInsert;
     private static final int EXPIRY_30_DAYS = 60 * 60 * 24 * 30;
     private final PostOpFunction function;
 
-    public Insert(List<InetSocketAddress> socketAddresses, long keys) throws IOException {
+    public InsertWithNoTimeout(List<InetSocketAddress> socketAddresses, long keys) throws IOException {
         this.memcachedClient = new MemcachedClient(socketAddresses);
         keysToInsert = keys;
         this.function = new PostOpFunction() {
@@ -28,8 +26,7 @@ public class Insert implements Callable<Insert.Result> {
         };
     }
 
-
-    public Insert(MemcachedClient memcachedClient, long keys) {
+    public InsertWithNoTimeout(MemcachedClient memcachedClient, long keys) {
         this.memcachedClient = memcachedClient;
         this.keysToInsert = keys;
         this.function = new PostOpFunction() {
@@ -49,16 +46,12 @@ public class Insert implements Callable<Insert.Result> {
         for (long i = (start * keysToInsert); i < (start + 1) * keysToInsert; i++) {
             String asString = String.valueOf(i);
             OperationFuture<Boolean> add = memcachedClient.add(asString, EXPIRY_30_DAYS, asString);
-
             try {
-                Boolean result = add.get(1, TimeUnit.SECONDS);
-                if (result) {
+                if (add.get()) {
                     passed++;
                 } else {
                     failed++;
                 }
-            } catch (TimeoutException e) {
-                timeout++;
             } catch (Exception e) {
                 otherException++;
             }
@@ -67,36 +60,4 @@ public class Insert implements Callable<Insert.Result> {
         return new Result(passed, failed, timeout, otherException, started.elapsed(TimeUnit.MILLISECONDS));
     }
 
-    static class Result {
-
-        public final long elapsedMillis;
-        public final long passed;
-        public final long failed;
-        public final String threadName;
-        public final long timeout;
-        public final long otherException;
-
-        public Result(long passed, long failed, long timeout, long otherException, long elapsedMillis) {
-            this.timeout = timeout;
-            this.otherException = otherException;
-            threadName = Thread.currentThread().getName();
-            this.elapsedMillis = elapsedMillis;
-            this.passed = passed;
-            this.failed = failed;
-        }
-
-        @Override
-        public String toString() {
-            return "thread Name: " + threadName + "\n"
-                    + "passed: " + passed + "\n"
-                    + "failed: " + failed + "\n"
-                    + "timeout: " + timeout + "\n"
-                    + "other Exception: " + otherException + "\n";
-        }
-    }
-
-
-    interface PostOpFunction {
-        void doOperation();
-    }
 }

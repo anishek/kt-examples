@@ -19,51 +19,68 @@ import java.util.concurrent.TimeUnit;
  */
 public class PopulateKt {
 
-
-    @Test
-    public void data() throws IOException, ExecutionException, InterruptedException {
-        String[] hostAndPort = System.getProperty("kt.server").split(":");
-
-        InetSocketAddress inetSocketAddress = new InetSocketAddress(hostAndPort[0], Integer.parseInt(hostAndPort[1]));
-        int threads = Integer.parseInt(System.getProperty("threads"));
-        ListeningExecutorService executors = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(threads + 1, new ThreadFactoryBuilder().setNameFormat("%d").build()));
-        long keys = Long.parseLong(System.getProperty("keys"));
-
-        Stopwatch started = Stopwatch.createStarted();
-        List<ListenableFuture<Insert.Result>> futures = new ArrayList<>();
-        for (int i = 0; i < threads; i++) {
-            futures.add(executors.submit(new Insert(Arrays.asList(inetSocketAddress), keys)));
-        }
-        List<Insert.Result> results = Futures.successfulAsList(futures).get();
-        for (Insert.Result result : results) {
-            System.out.println(result);
-        }
-        long elapsedInMillis = started.elapsed(TimeUnit.MILLISECONDS);
-        System.out.println("Thoughtput : " + (threads * keys * 1000) / elapsedInMillis);
-        System.out.println("Time Taken(millis) : " + elapsedInMillis);
+    interface ObjectCreator {
+        Insert instance(long keys) throws IOException;
     }
 
+    @Test
+    public void insertWait() throws IOException, ExecutionException, InterruptedException {
+        String[] hostAndPort = System.getProperty("kt.server").split(":");
+        final InetSocketAddress inetSocketAddress = new InetSocketAddress(hostAndPort[0], Integer.parseInt(hostAndPort[1]));
+        ObjectCreator objectCreator = new ObjectCreator() {
+            @Override
+            public Insert instance(long keys) throws IOException {
+                return new InsertWithTimeout(Arrays.asList(inetSocketAddress), keys);
+            }
+        };
+        run(objectCreator);
+    }
 
     @Test
-    public void dataSingleClient() throws IOException, ExecutionException, InterruptedException {
+    public void insertWaitSingleClient() throws IOException, ExecutionException, InterruptedException {
         String[] hostAndPort = System.getProperty("kt.server").split(":");
-
         InetSocketAddress inetSocketAddress = new InetSocketAddress(hostAndPort[0], Integer.parseInt(hostAndPort[1]));
+        final MemcachedClient client = new MemcachedClient(inetSocketAddress);
+
+        ObjectCreator objectCreator = new ObjectCreator() {
+            @Override
+            public Insert instance(long keys) throws IOException {
+                return new InsertWithTimeout(client, keys);
+            }
+
+        };
+        run(objectCreator);
+        client.shutdown();
+    }
+
+    @Test
+    public void insertNoWait() throws InterruptedException, ExecutionException, IOException {
+        String[] hostAndPort = System.getProperty("kt.server").split(":");
+        final InetSocketAddress inetSocketAddress = new InetSocketAddress(hostAndPort[0], Integer.parseInt(hostAndPort[1]));
+        ObjectCreator objectCreator = new ObjectCreator() {
+            @Override
+            public Insert instance(long keys) throws IOException {
+                return new InsertWithNoTimeout(Arrays.asList(inetSocketAddress), keys);
+
+            }
+        };
+        run(objectCreator);
+    }
+
+    private void run(ObjectCreator objectCreator) throws IOException, InterruptedException, ExecutionException {
         int threads = Integer.parseInt(System.getProperty("threads"));
         ListeningExecutorService executors = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(threads + 1, new ThreadFactoryBuilder().setNameFormat("%d").build()));
         long keys = Long.parseLong(System.getProperty("keys"));
 
-        MemcachedClient client = new MemcachedClient(inetSocketAddress);
         Stopwatch started = Stopwatch.createStarted();
-        List<ListenableFuture<Insert.Result>> futures = new ArrayList<>();
+        List<ListenableFuture<Result>> futures = new ArrayList<>();
         for (int i = 0; i < threads; i++) {
-            futures.add(executors.submit(new Insert(client, keys)));
+            futures.add(executors.submit(objectCreator.instance(keys)));
         }
-        List<Insert.Result> results = Futures.successfulAsList(futures).get();
-        for (Insert.Result result : results) {
+        List<Result> results = Futures.successfulAsList(futures).get();
+        for (Result result : results) {
             System.out.println(result);
         }
-        client.shutdown();
         long elapsedInMillis = started.elapsed(TimeUnit.MILLISECONDS);
         System.out.println("Thoughtput : " + (threads * keys * 1000) / elapsedInMillis);
         System.out.println("Time Taken(millis) : " + elapsedInMillis);
