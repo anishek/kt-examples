@@ -15,10 +15,29 @@ public class Insert implements Callable<Insert.Result> {
     private final MemcachedClient memcachedClient;
     private long keysToInsert;
     private static final int EXPIRY_30_DAYS = 60 * 60 * 24 * 30;
+    private final PostOpFunction function;
 
     public Insert(List<InetSocketAddress> socketAddresses, long keys) throws IOException {
         this.memcachedClient = new MemcachedClient(socketAddresses);
         keysToInsert = keys;
+        this.function = new PostOpFunction() {
+            @Override
+            public void doOperation() {
+                memcachedClient.shutdown();
+            }
+        };
+    }
+
+
+    public Insert(MemcachedClient memcachedClient, long keys) {
+        this.memcachedClient = memcachedClient;
+        this.keysToInsert = keys;
+        this.function = new PostOpFunction() {
+            @Override
+            public void doOperation() {
+                //do nothing
+            }
+        };
     }
 
     @Override
@@ -44,7 +63,7 @@ public class Insert implements Callable<Insert.Result> {
                 otherException++;
             }
         }
-        memcachedClient.shutdown();
+        function.doOperation();
         return new Result(passed, failed, timeout, otherException, started.elapsed(TimeUnit.MILLISECONDS));
     }
 
@@ -74,5 +93,10 @@ public class Insert implements Callable<Insert.Result> {
                     + "timeout: " + timeout + "\n"
                     + "other Exception: " + otherException + "\n";
         }
+    }
+
+
+    interface PostOpFunction {
+        void doOperation();
     }
 }

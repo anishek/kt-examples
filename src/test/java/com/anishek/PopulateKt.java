@@ -43,6 +43,32 @@ public class PopulateKt {
         System.out.println("Time Taken(millis) : " + elapsedInMillis);
     }
 
+
+    @Test
+    public void dataSingleClient() throws IOException, ExecutionException, InterruptedException {
+        String[] hostAndPort = System.getProperty("kt.server").split(":");
+
+        InetSocketAddress inetSocketAddress = new InetSocketAddress(hostAndPort[0], Integer.parseInt(hostAndPort[1]));
+        int threads = Integer.parseInt(System.getProperty("threads"));
+        ListeningExecutorService executors = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(threads + 1, new ThreadFactoryBuilder().setNameFormat("%d").build()));
+        long keys = Long.parseLong(System.getProperty("keys"));
+
+        MemcachedClient client = new MemcachedClient(inetSocketAddress);
+        Stopwatch started = Stopwatch.createStarted();
+        List<ListenableFuture<Insert.Result>> futures = new ArrayList<>();
+        for (int i = 0; i < threads; i++) {
+            futures.add(executors.submit(new Insert(client, keys)));
+        }
+        List<Insert.Result> results = Futures.successfulAsList(futures).get();
+        for (Insert.Result result : results) {
+            System.out.println(result);
+        }
+        client.shutdown();
+        long elapsedInMillis = started.elapsed(TimeUnit.MILLISECONDS);
+        System.out.println("Thoughtput : " + (threads * keys * 1000) / elapsedInMillis);
+        System.out.println("Time Taken(millis) : " + elapsedInMillis);
+    }
+
     @Test
     public void read() throws IOException {
         String[] hostAndPort = System.getProperty("kt.server").split(":");
