@@ -2,6 +2,7 @@ package com.anishek;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.*;
+import net.spy.memcached.MemcachedClient;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -40,5 +41,25 @@ public class PopulateKt {
         long elapsedInMillis = started.elapsed(TimeUnit.MILLISECONDS);
         System.out.println("Thoughtput : " + (threads * keys * 1000 * 1000) / elapsedInMillis);
         System.out.println("Time Taken(millis) : " + elapsedInMillis);
+    }
+
+    @Test
+    public void read() throws IOException {
+        String[] hostAndPort = System.getProperty("kt.server").split(":");
+
+        InetSocketAddress inetSocketAddress = new InetSocketAddress(hostAndPort[0], Integer.parseInt(hostAndPort[1]));
+        MemcachedClient memcachedClient = new MemcachedClient(inetSocketAddress);
+        long start = Long.parseLong(System.getProperty("start.key"));
+        long end = Long.parseLong(System.getProperty("end.key"));
+
+        for (long i = start; i < end; i++) {
+            try {
+                Long.parseLong(memcachedClient.get(String.valueOf(i)).toString());
+            } catch (Exception e) {
+                System.out.println("failed for key :" + i);
+                break;
+            }
+        }
+        memcachedClient.shutdown();
     }
 }
